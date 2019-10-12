@@ -1,0 +1,44 @@
+name: pack
+on:
+  push:
+    branches:
+      - '*'
+      - '*/*'
+
+jobs:
+  build:
+    runs-on: ubuntu-16.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.0.0
+    
+    - name: Build
+      run: dotnet build
+  
+  push:
+    runs-on: ubuntu-16.04
+    if: github.ref == 'refs/heads/master'
+    steps:
+    - uses: actions/checkout@v1
+    - name: Setup dotnet
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.0.0
+
+    - name: Semantic Release
+      uses: codfish/semantic-release-action@master
+      id: semantic
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Pack and Push
+      if: steps.semantic.outputs.new-release-published == 'true'
+      run: |
+        dotnet pack -p:PackageVersion=$RELEASE_VERSION -o ./
+        dotnet nuget push ./*.nupkg -k $NUGET_KEY -s https://api.nuget.org/v3/index.json
+      env:
+        NUGET_KEY: ${{ secrets.NUGET_KEY }}
+
