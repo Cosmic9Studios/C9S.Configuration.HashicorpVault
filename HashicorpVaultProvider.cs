@@ -4,6 +4,8 @@ using System.Threading.Tasks;
 using C9S.Configuration.HashicorpVault.Helpers;
 using Microsoft.Extensions.Configuration;
 using VaultSharp;
+using VaultSharp.V1.SecretsEngines;
+using VaultSharp.V1.SecretsEngines.KeyValue;
 
 namespace C9S.Configuration.HashicorpVault
 {
@@ -29,27 +31,28 @@ namespace C9S.Configuration.HashicorpVault
 
         public override void Load() => AsyncHelper.RunSync(LoadAsync);
 
+        private async Task<IEnumerable<string>> GetKeys(string secretPath) =>
+            version == KVVersion.V1 ? 
+                (await client.V1.Secrets.KeyValue.V1.ReadSecretPathsAsync(secretPath)).Data.Keys : 
+                (await client.V1.Secrets.KeyValue.V2.ReadSecretPathsAsync(secretPath)).Data.Keys;
+        
+        private async Task<Dictionary<string, object>> GetData(string fullPath) => 
+            version == KVVersion.V1 ? 
+                (await client.V1.Secrets.KeyValue.V1.ReadSecretAsync(fullPath)).Data :
+                (await client.V1.Secrets.KeyValue.V2.ReadSecretAsync(fullPath)).Data.Data;
+
+
         private async Task LoadAsync()
         {
             var dictionaries = new List<Dictionary<string, string>>();
-            
+    
             foreach (var secretPath in secretPaths)
             {
-                if (version == KVVersion.V1)
+                foreach (var path in await GetKeys(secretPath))
                 {
-                    foreach (var path in (await client.V1.Secrets.KeyValue.V1.ReadSecretPathsAsync(secretPath)).Data.Keys)
-                    {
-                        dictionaries.Add((await client.V1.Secrets.KeyValue.V1.ReadSecretAsync($"{secretPath}/{path}")).Data
-                            .ToDictionary(x => $"{Prefix}:{secretPath}:{path}", x => x.Value.ToString()));
-                    }
-                }
-                else if (version == KVVersion.V2)
-                {
-                    foreach (var path in (await client.V1.Secrets.KeyValue.V2.ReadSecretPathsAsync(secretPath)).Data.Keys)
-                    {
-                        dictionaries.Add((await client.V1.Secrets.KeyValue.V2.ReadSecretAsync($"{secretPath}/{path}")).Data.Data
-                            .ToDictionary(x => $"{Prefix}:{secretPath}:{path}", x => x.Value.ToString()));
-                    }
+                    var fullPath = string.IsNullOrWhiteSpace(secretPath) ? path : $"{secretPath}/{path}";
+                    var data = await GetData(fullPath);
+                    dictionaries.Add(data.ToDictionary(x => $"{Prefix}:{fullPath.Replace('/', ':')}:{x.Key}", x => x.Value.ToString()));
                 }
             }
 

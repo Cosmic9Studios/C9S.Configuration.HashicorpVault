@@ -1,6 +1,3 @@
-# C9S.Configuration.HashicorpVault
-Adds vault secrets to configuration using VaultSharp
-
 # What is C9S.Configuration.HashicorpVault
 
 C9S.Configuration.HashicorpVault is a Configuration Provider to easily add K/V secrets to your Configuration. 
@@ -14,6 +11,8 @@ Example: Let's say my secret path is `secret/test` and I have the following valu
 The provider will add `HashicorpVault:test:mykey` to the ConfigurationBuilder with the value `myvalue`. 
 
 You can thet access the value values by getting the "HashicorpVault" section: `Configuration.GetSection("HashicorpVault")`
+
+*Side Note:* The mount point for V1 is "secret" and for V2 is "kv"
 
 # How to Install 
 
